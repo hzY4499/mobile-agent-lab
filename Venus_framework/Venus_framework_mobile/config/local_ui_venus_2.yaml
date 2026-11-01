@@ -1,0 +1,21 @@
+# Local Ubuntu + USB Android device configuration.
+# The model server runs on H20; ADB stays on this host next to the phone.
+device:
+  id: "AVRUVB2519001424"
+
+ep_config:
+  step_limit: 30
+  purpose: ""
+  mini_app_name: "Android App"
+
+policy:
+  type: "ui_venus_2"
+  params:
+    model_url: "http://172.23.148.117:18082/v1"
+    model_name: "Qwen3.8-27B"
+    api_key: ""
+    temperature: 0.6
+    n_img: 2
+
+app_mapping:
+  config_file: "config/app_mapping.yaml"

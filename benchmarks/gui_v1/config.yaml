@@ -1,0 +1,37 @@
+# 可修改；每次实验会冻结一份到结果目录，断点续跑仍使用冻结版本。
+device: AVRUVB2519001424
+resolution: [1080, 2400]
+repetitions: 3
+atomic: {steps: 15, seconds: 120}
+end_to_end: {steps: 60, seconds: 600}
+service:
+  url: http://172.23.148.117:18082/v1
+  ssh_host: h20
+  key_file: /data3/yhz/qwen38-deploy/api_key
+  manager: /home/yhz/qwen35-4b-audit-20261021/manage_models.py
+  ready_timeout: 600
+sampling:
+  temperature: 0.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  repetition_penalty: 1.0
+  frequency_penalty: 0.0
+  seed: 0
+  max_tokens: 16384
+n_img: 2
+models:
+  qwen35:
+    name: Qwen3.5-4B
+    # 模型专属推荐值，和27B不同；可改，但会在报告中明确记录。
+    presence_penalty: 1.5
+  qwen38:
+    name: Qwen3.8-27B
+    presence_penalty: 0.0
+# 每个模型首次运行做一次相同的64-token预热，不计GUI耗时。
+warmup_tokens: 64
+# 保留聊天历史，避免坐标脚本误删真实消息。复核必须检查本轮新发送。
+chat_history: preserve
+# 配置仅支持已验证的Y_Yao + 天竺葵设备页面；其他账号需另校准页面模板。
+recipient: Y_Yao
+search: 天竺葵

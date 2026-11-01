@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-23T13:35:48.675118+08:00",
+  "checks": {
+    "no_token_403": true,
+    "selected_run_renders": true,
+    "path_escape_404": true,
+    "unconfirmed_receipt_pending": true,
+    "confirmed_receipt_pass": true,
+    "review_history_preserved": true,
+    "report_regenerated": true,
+    "server_closes_cleanly": true
+  },
+  "scope": "Disposable synthetic fixture; actual receiver assessments unchanged."
+}

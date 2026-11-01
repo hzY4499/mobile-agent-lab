@@ -1,0 +1,134 @@
+{
+  "at": "2026-10-23T13:38:26.713818+08:00",
+  "runs": [
+    {
+      "root": "/home/kojoker/Desktop/HuaWei/测试结果/自动benchmark/开发验证-双模型单轮-20261023",
+      "model": "Qwen3.5-4B",
+      "case": "A01-r1",
+      "execution": "COMPLETED",
+      "assessment": "FAIL",
+      "wall_s": 15.911835324019194,
+      "gui_actions": 2,
+      "http_requests": 3,
+      "temperatures": [
+        1.0
+      ],
+      "responses_match_model": true,
+      "kv_gpu_blocks": 7777,
+      "prefix_caching": true,
+      "observed_kv_peak": 0.0019290123456789932,
+      "evidence_check": {
+        "missing": [],
+        "videos": [
+          {
+            "file": "screen-01.mp4",
+            "bytes": 576516,
+            "valid": true,
+            "metadata": {
+              "programs": [],
+              "streams": [
+                {
+                  "width": 720,
+                  "height": 1600
+                },
+                {},
+                {}
+              ],
+              "format": {
+                "duration": "13.609100"
+              }
+            }
+          }
+        ],
+        "readable_video": true,
+        "note": "可读不等于全部墙钟时长均有视频帧；缺失证据必须单独记录。"
+      }
+    },
+    {
+      "root": "/home/kojoker/Desktop/HuaWei/测试结果/自动benchmark/开发验证-双模型单轮-20261023",
+      "model": "Qwen3.8-27B",
+      "case": "A01-r1",
+      "execution": "COMPLETED",
+      "assessment": "PASS",
+      "wall_s": 16.360222515068017,
+      "gui_actions": 1,
+      "http_requests": 2,
+      "temperatures": [
+        1.0
+      ],
+      "responses_match_model": true,
+      "kv_gpu_blocks": 1716,
+      "prefix_caching": true,
+      "observed_kv_peak": 0.00641399416909616,
+      "evidence_check": {
+        "missing": [],
+        "videos": [
+          {
+            "file": "screen-01.mp4",
+            "bytes": 502852,
+            "valid": true,
+            "metadata": {
+              "programs": [],
+              "streams": [
+                {
+                  "width": 720,
+                  "height": 1600
+                },
+                {},
+                {}
+              ],
+              "format": {
+                "duration": "11.489400"
+              }
+            }
+          }
+        ],
+        "readable_video": true,
+        "note": "可读不等于全部墙钟时长均有视频帧；缺失证据必须单独记录。"
+      }
+    },
+    {
+      "root": "/home/kojoker/Desktop/HuaWei/测试结果/自动benchmark/开发验证-最终版单轮-20261023",
+      "model": "Qwen3.8-27B",
+      "case": "A01-r1",
+      "execution": "COMPLETED",
+      "assessment": "PASS",
+      "wall_s": 11.85207459400408,
+      "gui_actions": 1,
+      "http_requests": 2,
+      "temperatures": [
+        1.0
+      ],
+      "responses_match_model": true,
+      "kv_gpu_blocks": 1716,
+      "prefix_caching": true,
+      "observed_kv_peak": 0.00641399416909616,
+      "evidence_check": {
+        "missing": [],
+        "videos": [
+          {
+            "file": "screen-01.mp4",
+            "bytes": 385188,
+            "valid": true,
+            "metadata": {
+              "programs": [],
+              "streams": [
+                {
+                  "width": 720,
+                  "height": 1600
+                },
+                {},
+                {}
+              ],
+              "format": {
+                "duration": "6.662400"
+              }
+            }
+          }
+        ],
+        "readable_video": true,
+        "note": "可读不等于全部墙钟时长均有视频帧；缺失证据必须单独记录。"
+      }
+    }
+  ]
+}

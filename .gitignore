@@ -28,3 +28,20 @@ poetry.lock
 
 # PyCharm
 .idea
+
+# Local environments and credentials
+/.venv/
+/venv/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+api_key
+
+# Device screenshots, local experiment output and accidental path artifacts
+/benchmarks/gui_v1/assets/
+/record/
+/logs/
+/outputs/
+/home/

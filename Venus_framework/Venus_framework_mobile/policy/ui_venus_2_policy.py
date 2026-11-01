@@ -30,7 +30,7 @@ ACTION_NAME_MAP = {
     "PressHome": "PressHome",
     "PressEnter": "PressEnter",
     "PressRecent": "PressMenu",
-    "Answer": "CallUser",
+    "Answer": "SUCCESS",
     "Finished": "SUCCESS",
 }
 
@@ -90,6 +90,12 @@ class UIVenus2Policy(BasePolicy):
         self.runtime_context = runtime_context
         self.model_name = model_name
         self.temperature = temperature
+        # Optional experiment controls; absent values retain the existing API behavior.
+        self.generation_params = dict(kwargs.get("generation_params") or {})
+        allowed = {"top_p", "top_k", "min_p", "presence_penalty", "seed",
+                   "repetition_penalty", "frequency_penalty"}
+        if self.generation_params.keys() - allowed:
+            raise ValueError("Unsupported generation_params field")
         self.api_key = api_key or os.environ.get("API_KEY") or os.environ.get("MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY") or "EMPTY"
         self.client = OpenAI(base_url=model_url, api_key=self.api_key, timeout=120.0)
         self.last_action = None
@@ -194,9 +200,13 @@ class UIVenus2Policy(BasePolicy):
                     messages=messages,
                     temperature=self.temperature,
                     max_tokens=16384,
+                    **{key: value for key, value in self.generation_params.items()
+                       if key in {"top_p", "presence_penalty", "seed"}},
                     extra_body={
                         "repetition_penalty": 1.05,
                         "frequency_penalty": 0.3,
+                        **{key: value for key, value in self.generation_params.items()
+                           if key in {"top_k", "min_p", "repetition_penalty", "frequency_penalty"}},
                     },
                 )
                 message = response.choices[0].message
