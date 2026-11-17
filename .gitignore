@@ -45,3 +45,7 @@ api_key
 /logs/
 /outputs/
 /home/
+
+# Local recordings and credentials
+/runs/
+**/*api-key*.txt

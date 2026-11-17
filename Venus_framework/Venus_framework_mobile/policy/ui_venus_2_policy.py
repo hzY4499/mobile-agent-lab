@@ -90,6 +90,14 @@ class UIVenus2Policy(BasePolicy):
         self.runtime_context = runtime_context
         self.model_name = model_name
         self.temperature = temperature
+        # An explicit API profile avoids sending vLLM-only sampling fields to
+        # hosted providers. Model identity and messages stay owned by the policy.
+        self.api_parameters = kwargs.get("api_parameters")
+        if self.api_parameters is not None:
+            self.api_parameters = dict(self.api_parameters)
+            allowed_api = {"temperature", "top_p", "max_tokens", "reasoning_effort", "extra_body"}
+            if self.api_parameters.keys() - allowed_api:
+                raise ValueError("Unsupported api_parameters field")
         # Optional experiment controls; absent values retain the existing API behavior.
         self.generation_params = dict(kwargs.get("generation_params") or {})
         allowed = {"top_p", "top_k", "min_p", "presence_penalty", "seed",
@@ -97,7 +105,9 @@ class UIVenus2Policy(BasePolicy):
         if self.generation_params.keys() - allowed:
             raise ValueError("Unsupported generation_params field")
         self.api_key = api_key or os.environ.get("API_KEY") or os.environ.get("MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY") or "EMPTY"
-        self.client = OpenAI(base_url=model_url, api_key=self.api_key, timeout=120.0)
+        self.client = OpenAI(base_url=model_url, api_key=self.api_key,
+                             timeout=kwargs.get("request_timeout_s", 120.0),
+                             max_retries=kwargs.get("max_retries", 2))
         self.last_action = None
         self._current_messages: List[dict] = []
         self._current_image_size: Tuple[int, int] = (0, 0)
@@ -195,7 +205,7 @@ class UIVenus2Policy(BasePolicy):
     def _call_model(self, messages: list, retry_times: int = 3) -> Optional[str]:
         for attempt in range(retry_times):
             try:
-                response = self.client.chat.completions.create(
+                request = dict(
                     model=self.model_name,
                     messages=messages,
                     temperature=self.temperature,
@@ -209,6 +219,9 @@ class UIVenus2Policy(BasePolicy):
                            if key in {"top_k", "min_p", "repetition_penalty", "frequency_penalty"}},
                     },
                 )
+                if self.api_parameters is not None:
+                    request = dict(model=self.model_name, messages=messages, **self.api_parameters)
+                response = self.client.chat.completions.create(**request)
                 message = response.choices[0].message
                 content = message.content or ""
                 reasoning = getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None)
