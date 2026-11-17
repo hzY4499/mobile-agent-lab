@@ -68,7 +68,7 @@ class EvidenceTests(unittest.TestCase):
                 logging.getLogger('evidence-fixture').warning('credential: secret-for-fixture')
                 n = recorder.model_request({'messages': []})
                 recorder.model_response(n, error=TimeoutError())
-                recorder.close((False, 'recording_failed', None), {'final_answer': '', 'episode_data': []})
+                recorder.close((False, 'secret-for-fixture', None), {'final_answer': '', 'episode_data': []})
             root = Path(directory)
             summary = json.loads((root / 'summary.json').read_text())
             self.assertFalse(summary['evidence_complete'])
@@ -77,6 +77,7 @@ class EvidenceTests(unittest.TestCase):
             self.assertTrue((root / 'trajectory.json').exists())
             self.assertNotIn('secret-for-fixture', (root / 'framework.log').read_text())
             self.assertIn('[REDACTED]', (root / 'framework.log').read_text())
+            self.assertNotIn('secret-for-fixture', (root / 'README.md').read_text())
             self.assertNotIn(recorder.handler, logging.getLogger().handlers)
 
     def test_external_wrapper_finalizes_and_restores_on_normal_exit_and_interrupt(self):

@@ -348,7 +348,7 @@ class EvidenceRecorder:
                     "- 最终回答：final-answer.md；运行汇总：summary.json\n\n"
                     "请求中的图片改为 images/ 文件引用；不保存鉴权请求头。\n"
                     "模型声明完成与证据是否完整分别记录；业务结果仍需复核。\n")
-            (self.directory / "README.md").write_text(text, encoding="utf-8")
+            (self.directory / "README.md").write_text(self.sanitize(text), encoding="utf-8")
         finally:
             for restore in reversed(self.restores):
                 restore()
