@@ -57,6 +57,9 @@ class RunHandler:
         self.runtime_context = RuntimeContext()
         self.step_limit = ep_config.get('step_limit')
         self.ep_config = ep_config
+        self.final_answer = ""
+        self._active_episode_dir = None
+        self._partial_episode_data = []
         self.purpose = ""
         self.app_mapping: Dict[str, str] = app_mapping or {}
         self.device_manager = DeviceManager()
@@ -113,6 +116,9 @@ class RunHandler:
             Whether the task completed successfully.
         """
         self.purpose = purpose
+        self.final_answer = ""
+        self._active_episode_dir = None
+        self._partial_episode_data = []
         episode_start_time = time.time()
         
         # Build the trajectory directory name from the timestamp, task prefix, and short UUID.
@@ -126,9 +132,13 @@ class RunHandler:
         episode_dir = os.path.join(self.trace_dir, episode_id)
         screenshots_dir = os.path.join(episode_dir, "screenshots")
         os.makedirs(screenshots_dir, exist_ok=True)
+        # External recording can recover completed rows if this run is interrupted.
+        self._active_episode_dir = episode_dir
+        self._episode_started_at = episode_start_time
         
         # Trajectory data structure.
         episode_data = []
+        self._partial_episode_data = episode_data
         is_successful = False
         call_user_content = None
         ep_end = False
@@ -234,6 +244,7 @@ class RunHandler:
                 termination_reason = "policy_failed"
             elif action_type in ['CallUser', 'SUCCESS']:
                 self.logger.info("任务完成")
+                self.final_answer = action.get('input', '')
                 is_successful = action_type == 'SUCCESS'
                 if action_type == 'CallUser':
                     call_user_content = action.get('input', '')
@@ -294,6 +305,7 @@ class RunHandler:
             "is_successful": is_successful,
             "ep_end": ep_end,
             "termination_reason": termination_reason,
+            "final_answer": self.final_answer,
         }
         
         # Save the trajectory as pkl.gz.

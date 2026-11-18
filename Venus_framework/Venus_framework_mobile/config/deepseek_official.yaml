@@ -1,0 +1,27 @@
+# Official DeepSeek profile. Supply the device with --device-id and the key via API_KEY.
+device:
+  id: ""
+
+ep_config:
+  step_limit: 30
+  purpose: ""
+  mini_app_name: "Android App"
+
+policy:
+  type: "ui_venus_2"
+  params:
+    model_url: "https://api.deepseek.com"
+    model_name: "deepseek-flash"
+    api_key: ""
+    n_img: 2
+    request_timeout_s: 120.0
+    max_retries: 0
+    api_parameters:
+      max_tokens: 16384
+      reasoning_effort: "max"
+      extra_body:
+        thinking:
+          type: "enabled"
+
+app_mapping:
+  config_file: "config/app_mapping.yaml"

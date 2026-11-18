@@ -47,6 +47,44 @@ def validate_config(config: dict, args) -> bool:
     return True
 
 
+def load_config(args) -> dict:
+    """Load episode settings and apply CLI overrides for both run entry points."""
+    logger = logging.getLogger(__name__)
+    with open(args.config, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+
+    mapping = config.get('app_mapping', {})
+    if 'config_file' in mapping:
+        source = mapping['config_file']
+        if not os.path.isabs(source):
+            source = os.path.join(os.path.dirname(args.config), os.path.basename(source))
+        if os.path.exists(source):
+            with open(source, 'r', encoding='utf-8') as f:
+                config['app_mapping'] = yaml.safe_load(f).get('app_mapping', {})
+            logger.info("已加载应用映射配置: %s", source)
+        else:
+            logger.warning("应用映射配置文件不存在: %s", source)
+            config['app_mapping'] = {}
+
+    if args.device_id:
+        config.setdefault('device', {})['id'] = args.device_id
+    if args.step_limit is not None:
+        config.setdefault('ep_config', {})['step_limit'] = args.step_limit
+    for name in ('model_host', 'model_url', 'model_name'):
+        value = getattr(args, name, None)
+        if value:
+            config.setdefault('policy', {}).setdefault('params', {})[name] = value
+    if args.reflection:
+        with open(args.reflection_config, 'r', encoding='utf-8') as f:
+            reflection = yaml.safe_load(f)['reflection']
+        for name in ('model_url', 'model_name'):
+            value = getattr(args, name, None)
+            if value:
+                reflection.setdefault('params', {})[name] = value
+        config.setdefault('ep_config', {})['reflection'] = reflection
+    return config
+
+
 def setup_logging(log_file: str = None):
     """Configure logging.
     
@@ -106,53 +144,10 @@ def main():
         sys.exit(1)
     
     try:
-        with open(args.config, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-        
-        # Load an external app_mapping configuration when specified.
-        app_mapping_config = config.get('app_mapping', {})
-        if 'config_file' in app_mapping_config:
-            app_mapping_file = app_mapping_config['config_file']
-            # Resolve relative paths from the main configuration directory.
-            if not os.path.isabs(app_mapping_file):
-                config_dir = os.path.dirname(args.config)
-                app_mapping_file = os.path.join(config_dir, os.path.basename(app_mapping_file))
-            
-            if os.path.exists(app_mapping_file):
-                with open(app_mapping_file, 'r', encoding='utf-8') as f:
-                    app_mapping_data = yaml.safe_load(f)
-                    config['app_mapping'] = app_mapping_data.get('app_mapping', {})
-                    logger.info(f"已加载应用映射配置: {app_mapping_file}")
-            else:
-                logger.warning(f"应用映射配置文件不存在: {app_mapping_file}")
-                config['app_mapping'] = {}
+        config = load_config(args)
     except Exception as e:
         logger.error(f"加载配置文件失败: {e}")
         sys.exit(1)
-    
-    # Override configuration values with command-line arguments.
-    if args.device_id:
-        config.setdefault('device', {})['id'] = args.device_id
-    if args.step_limit is not None:
-        config.setdefault('ep_config', {})['step_limit'] = args.step_limit
-    if args.model_host:
-        config.setdefault('policy', {}).setdefault('params', {})['model_host'] = args.model_host
-    if args.model_url:
-        config.setdefault('policy', {}).setdefault('params', {})['model_url'] = args.model_url
-    if args.model_name:
-        config.setdefault('policy', {}).setdefault('params', {})['model_name'] = args.model_name
-    if args.reflection:
-        if not os.path.exists(args.reflection_config):
-            logger.error(f"反思配置文件不存在: {args.reflection_config}")
-            sys.exit(1)
-        with open(args.reflection_config, 'r', encoding='utf-8') as f:
-            reflection_config = yaml.safe_load(f)
-        reflection_params = reflection_config['reflection'].setdefault('params', {})
-        if args.model_url:
-            reflection_params['model_url'] = args.model_url
-        if args.model_name:
-            reflection_params['model_name'] = args.model_name
-        config.setdefault('ep_config', {})['reflection'] = reflection_config['reflection']
     
     # Validate the configuration.
     if not validate_config(config, args):
@@ -194,6 +189,8 @@ def main():
         
         # Unpack (is_successful, termination_reason, call_user_content).
         is_successful, termination_reason, call_user_content = result
+        if handler.final_answer:
+            logger.info(">> %s", handler.final_answer)
         
         # Report the result for each termination reason.
         if termination_reason == 'success':
