@@ -38,8 +38,6 @@ def main():
     args = parser.parse_args()
     setup_logging(args.log_file)
     config = load_config(args)
-    if (args.model_request_limit is not None or args.deadline_ms is not None) and config['ep_config'].get('reflection'):
-        raise ValueError('Strict recorded budget does not support an unguarded reflection model')
     task = re.sub(r'[^\u4e00-\u9fa5a-zA-Z0-9]', '', args.purpose)[:10]
     name = datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + task + '_' + uuid.uuid4().hex[:8]
     directory = Path(args.evidence_dir).resolve() if args.evidence_dir else Path(args.trace_dir).resolve() / name
@@ -53,6 +51,10 @@ def main():
                                expected_base_url=args.expected_base_url)
     logging.info('本轮完整记录目录: %s', directory)
     try:
+        if config['policy']['type'] != 'ui_venus_2':
+            raise ValueError('Recorded runs require policy type ui_venus_2')
+        if budget and config['ep_config'].get('reflection'):
+            raise ValueError('Recorded limits and identity checks do not cover the separate reflection model')
         handler = RunHandler(
             device_id=config['device']['id'], trace_dir=str(directory / 'traces'),
             policy_type=config['policy']['type'], ep_config=config['ep_config'],

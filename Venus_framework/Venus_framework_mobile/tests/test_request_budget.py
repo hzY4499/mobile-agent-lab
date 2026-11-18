@@ -163,5 +163,27 @@ class BudgetTests(unittest.TestCase):
             self.assertEqual(progress['reason'], 'startup_failed')
             self.assertFalse((Path(directory) / 'summary.json').exists())
 
+    def test_strict_options_reject_model_clients_the_recorder_cannot_observe(self):
+        from scripts import run_recorded_venus
+        for policy, ep_config, flags in [
+            ('ui_venus', {}, ['--model-request-limit', '1']),
+            ('ui_venus_2', {'reflection': {'params': {}}}, ['--expected-model', 'fixture']),
+        ]:
+            with self.subTest(policy=policy), tempfile.TemporaryDirectory() as directory:
+                config = {'device': {'id': 'fixture'}, 'ep_config': ep_config,
+                          'policy': {'type': policy}}
+                args = ['recorded', '--purpose', 'fixture', '--evidence-dir', directory, *flags]
+                with patch.object(sys, 'argv', args), \
+                     patch.object(run_recorded_venus, 'load_config', return_value=config), \
+                     patch.object(run_recorded_venus, 'setup_logging'), \
+                     patch.object(run_recorded_venus, 'RunHandler') as handler, \
+                     patch.object(run_recorded_venus.logging, 'exception'):
+                    self.assertEqual(run_recorded_venus.main(), 1)
+                handler.assert_not_called()
+                progress = json.loads((Path(directory) / 'budget-progress.json').read_text())
+                self.assertTrue(progress['terminal'])
+                self.assertEqual(progress['modelRequests'], 0)
+                self.assertEqual(progress['reason'], 'startup_failed')
+
 
 if __name__ == '__main__': unittest.main()

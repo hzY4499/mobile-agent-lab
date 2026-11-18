@@ -38,8 +38,9 @@ class DeepSeekProfileTests(unittest.TestCase):
 
     def test_profile_cannot_replace_model_or_messages(self):
         for name, value in [('model', 'wrong'), ('messages', [])]:
-            with self.subTest(name=name), self.assertRaises(ValueError):
-                UIVenus2Policy(None, api_parameters={name: value})
+            for params in ({name: value}, {'extra_body': {name: value}}):
+                with self.subTest(params=params), self.assertRaises(ValueError):
+                    UIVenus2Policy(None, api_parameters=params)
 
     def test_default_vllm_parameters_are_preserved(self):
         with patch('policy.ui_venus_2_policy.OpenAI') as sdk:

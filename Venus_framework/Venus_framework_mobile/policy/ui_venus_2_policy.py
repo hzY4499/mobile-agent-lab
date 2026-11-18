@@ -98,6 +98,11 @@ class UIVenus2Policy(BasePolicy):
             allowed_api = {"temperature", "top_p", "max_tokens", "reasoning_effort", "extra_body"}
             if self.api_parameters.keys() - allowed_api:
                 raise ValueError("Unsupported api_parameters field")
+            extra_body = self.api_parameters.get("extra_body")
+            if extra_body is not None and (
+                not isinstance(extra_body, dict) or {"model", "messages"}.intersection(extra_body)
+            ):
+                raise ValueError("api_parameters.extra_body must be an object without model or messages")
         # Optional experiment controls; absent values retain the existing API behavior.
         self.generation_params = dict(kwargs.get("generation_params") or {})
         allowed = {"top_p", "top_k", "min_p", "presence_penalty", "seed",

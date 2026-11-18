@@ -29,8 +29,9 @@ replaces the local vLLM sampling extras for this profile only. Images still trav
 through the native screenshot message path; GUI output still uses `<action>`.
 This does not enable native function calling or guarantee benchmark success.
 
-The ordinary `main.py` entry point remains available without recording. Both
-entry points share configuration loading and command-line overrides.
+The recorded entry point requires the `ui_venus_2` policy so it can observe the
+model client. The ordinary `main.py` entry point still supports the legacy
+`ui_venus` policy. Both entry points share configuration loading and overrides.
 
 ## Limits and results
 
@@ -44,8 +45,8 @@ entry points share configuration loading and command-line overrides.
   and interrupts the native loop on the main thread; cleanup may continue after
   the task deadline to finalize and pull video.
 - Expected model and base URL are checked before dispatch; response model identity
-  is checked after dispatch. Strict request/deadline limits reject reflection,
-  since its separate model client is not covered by this budget.
+  is checked after dispatch. Limits and identity checks cannot be combined with
+  reflection, since its separate model client is outside the recorder.
 - Cancellation finalizes evidence in `finally`. Completed trajectory rows are
   preserved as partial evidence when the native loop is interrupted. A forced
   process kill or host crash cannot guarantee video finalization.
