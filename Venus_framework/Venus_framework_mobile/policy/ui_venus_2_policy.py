@@ -11,6 +11,7 @@ from openai import OpenAI
 from PIL import Image
 
 from policy.base_policy import BasePolicy
+from utils.step_timing import CallRecorder
 
 
 SCALE_FACTOR = 1000
@@ -116,6 +117,8 @@ class UIVenus2Policy(BasePolicy):
         self.last_action = None
         self._current_messages: List[dict] = []
         self._current_image_size: Tuple[int, int] = (0, 0)
+        self.call_recorder = CallRecorder()
+        self.call_recorder.attach_http_counter(self.client)
 
     def get_next_action(self, state: Dict[str, Any]) -> Optional[tuple]:
         messages = state["user_query"]
@@ -208,34 +211,36 @@ class UIVenus2Policy(BasePolicy):
         return action
 
     def _call_model(self, messages: list, retry_times: int = 3) -> Optional[str]:
-        for attempt in range(retry_times):
-            try:
-                request = dict(
-                    model=self.model_name,
-                    messages=messages,
-                    temperature=self.temperature,
-                    max_tokens=16384,
-                    **{key: value for key, value in self.generation_params.items()
-                       if key in {"top_p", "presence_penalty", "seed"}},
-                    extra_body={
-                        "repetition_penalty": 1.05,
-                        "frequency_penalty": 0.3,
+        with self.call_recorder.track() as call:
+            for attempt in range(retry_times):
+                call.attempts += 1
+                try:
+                    request = dict(
+                        model=self.model_name,
+                        messages=messages,
+                        temperature=self.temperature,
+                        max_tokens=16384,
                         **{key: value for key, value in self.generation_params.items()
-                           if key in {"top_k", "min_p", "repetition_penalty", "frequency_penalty"}},
-                    },
-                )
-                if self.api_parameters is not None:
-                    request = dict(model=self.model_name, messages=messages, **self.api_parameters)
-                response = self.client.chat.completions.create(**request)
-                message = response.choices[0].message
-                content = message.content or ""
-                reasoning = getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None)
-                if reasoning:
-                    content = f"<think>{reasoning}</think>\n{content}"
-                return content
-            except Exception as error:
-                self.logger.warning("模型调用失败 (%d/%d): %s", attempt + 1, retry_times, error)
-                if attempt < retry_times - 1:
-                    time.sleep(2 ** attempt)
-        self.logger.error("模型调用失败，已重试 %d 次", retry_times)
-        return None
+                           if key in {"top_p", "presence_penalty", "seed"}},
+                        extra_body={
+                            "repetition_penalty": 1.05,
+                            "frequency_penalty": 0.3,
+                            **{key: value for key, value in self.generation_params.items()
+                               if key in {"top_k", "min_p", "repetition_penalty", "frequency_penalty"}},
+                        },
+                    )
+                    if self.api_parameters is not None:
+                        request = dict(model=self.model_name, messages=messages, **self.api_parameters)
+                    response = self.client.chat.completions.create(**request)
+                    message = response.choices[0].message
+                    content = message.content or ""
+                    reasoning = getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None)
+                    if reasoning:
+                        content = f"<think>{reasoning}</think>\n{content}"
+                    return content
+                except Exception as error:
+                    self.logger.warning("模型调用失败 (%d/%d): %s", attempt + 1, retry_times, error)
+                    if attempt < retry_times - 1:
+                        time.sleep(2 ** attempt)
+            self.logger.error("模型调用失败，已重试 %d 次", retry_times)
+            return None

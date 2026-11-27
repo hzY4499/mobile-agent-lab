@@ -10,6 +10,8 @@ from io import BytesIO
 from openai import OpenAI
 from PIL import Image, ImageDraw
 
+from utils.step_timing import CallRecorder
+
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +219,8 @@ class ReflectionSupervisor:
         self.image_window = image_window
         self.api_key = api_key or os.environ.get("API_KEY") or os.environ.get("MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY") or "EMPTY"
         self.client = OpenAI(base_url=model_url, api_key=self.api_key)
+        self.call_recorder = CallRecorder()
+        self.call_recorder.attach_http_counter(self.client)
         scale_label = "1（归一化小数）" if scale_factor == 1 else str(int(scale_factor))
         self.system_prompt = SYSTEM_PROMPT.replace("__SCALE_FACTOR__", scale_label)
         self._messages = [{"role": "system", "content": self.system_prompt}]
@@ -300,37 +304,39 @@ class ReflectionSupervisor:
             ]
 
     def _call_model(self, messages: list, max_retries: int = 3) -> tuple:
-        last_error = None
-        for attempt in range(max_retries):
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=messages,
-                    temperature=self.temperature,
-                    max_tokens=16384,
-                    extra_body={
-                        "chat_template_kwargs": {"enable_thinking": False},
-                        "repetition_penalty": 1.05,
-                        "frequency_penalty": 0.3,
-                    },
-                )
-                message = response.choices[0].message
-                content = message.content or ""
-                reasoning_content = getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None) or ""
-                return content, reasoning_content
-            except Exception as error:
-                last_error = error
-                error_text = str(error)
-                if "request_size_limit" in error_text or "body length exceed" in error_text:
-                    if self._evict_oldest_image():
-                        logger.warning("请求体超限，已淘汰一张图片")
-                        continue
-                if attempt < max_retries - 1:
-                    wait_seconds = 2 ** attempt
-                    logger.warning("监督模型调用失败: %s，等待 %d 秒", error, wait_seconds)
-                    time.sleep(wait_seconds)
-        logger.error("监督模型调用失败: %s", last_error)
-        return "", ""
+        with self.call_recorder.track() as call:
+            last_error = None
+            for attempt in range(max_retries):
+                call.attempts += 1
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        temperature=self.temperature,
+                        max_tokens=16384,
+                        extra_body={
+                            "chat_template_kwargs": {"enable_thinking": False},
+                            "repetition_penalty": 1.05,
+                            "frequency_penalty": 0.3,
+                        },
+                    )
+                    message = response.choices[0].message
+                    content = message.content or ""
+                    reasoning_content = getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None) or ""
+                    return content, reasoning_content
+                except Exception as error:
+                    last_error = error
+                    error_text = str(error)
+                    if "request_size_limit" in error_text or "body length exceed" in error_text:
+                        if self._evict_oldest_image():
+                            logger.warning("请求体超限，已淘汰一张图片")
+                            continue
+                    if attempt < max_retries - 1:
+                        wait_seconds = 2 ** attempt
+                        logger.warning("监督模型调用失败: %s，等待 %d 秒", error, wait_seconds)
+                        time.sleep(wait_seconds)
+            logger.error("监督模型调用失败: %s", last_error)
+            return "", ""
 
     def _evict_oldest_image(self) -> bool:
         for message in self._messages:

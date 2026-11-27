@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import requests
 from PIL import Image
 from policy.base_policy import BasePolicy
+from utils.step_timing import CallRecorder
 
 
 class UIVenusPolicy(BasePolicy):
@@ -28,6 +29,7 @@ class UIVenusPolicy(BasePolicy):
         self.runtime_context = runtime_context
         self._current_messages = []
         self._current_image_size = (0, 0)
+        self.call_recorder = CallRecorder()
     
     def get_next_action(self, state: Dict[str, Any]) -> tuple:
         """Get the next action.
@@ -101,13 +103,16 @@ class UIVenusPolicy(BasePolicy):
         }
 
         body = {"model": self.model_name, "messages": messages, "temperature": self.temperature}
-        try:
-            response = requests.post(self.model_url, data=json.dumps(body), headers=headers, stream=False, timeout=30)
-            response.raise_for_status()  
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            self.logger.error("模型调用异常: %s", str(e))
-            return None
+        with self.call_recorder.track() as call:
+            call.attempts = 1
+            call.http_requests = 1
+            try:
+                response = requests.post(self.model_url, data=json.dumps(body), headers=headers, stream=False, timeout=30)
+                response.raise_for_status()  
+                return response.json()
+            except requests.exceptions.RequestException as e:
+                self.logger.error("模型调用异常: %s", str(e))
+                return None
             
     def _parse_response(
         self,
