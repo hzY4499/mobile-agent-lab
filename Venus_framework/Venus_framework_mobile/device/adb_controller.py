@@ -4,6 +4,8 @@ import subprocess
 import logging
 import time
 
+from utils.step_timing import now, png_size
+
 
 class ADBController:
     """Wrap Android device operations exposed through ADB."""
@@ -16,6 +18,7 @@ class ADBController:
         """
         self.device_id = device_id
         self.logger = logging.getLogger(__name__)
+        self.last_screenshot_stats = None
         self._check_connection()
     
     def _check_connection(self) -> bool:
@@ -168,15 +171,27 @@ class ADBController:
         Returns:
             A Base64-encoded image string, or None on failure.
         """
+        started = now()
+        stats = {'attempts': 0, 'capture_s': 0.0, 'encode_s': 0.0, 'bytes': 0, 'width': None, 'height': None}
+        self.last_screenshot_stats = stats
         for attempt in range(retry + 1):
             try:
+                stats['attempts'] = attempt + 1
                 cmd = ['adb']
                 if self.device_id:
                     cmd.extend(['-s', self.device_id])
                 cmd.extend(['shell', 'screencap', '-p'])
                 screenshot_bytes = subprocess.run(cmd, check=False, capture_output=True, timeout=30)
+                stats['capture_s'] = now() - started
                 if screenshot_bytes.returncode == 0 and screenshot_bytes.stdout:
-                    return base64.b64encode(screenshot_bytes.stdout).decode('utf-8')
+                    encode_started = now()
+                    encoded = base64.b64encode(screenshot_bytes.stdout).decode('utf-8')
+                    stats['encode_s'] = now() - encode_started
+                    stats['bytes'] = len(screenshot_bytes.stdout)
+                    size = png_size(screenshot_bytes.stdout)
+                    if size:
+                        stats['width'], stats['height'] = size
+                    return encoded
                 self.logger.warning(f"截图失败 (尝试 {attempt + 1}/{retry + 1})")
                 if attempt < retry:
                     time.sleep(1)
@@ -187,6 +202,7 @@ class ADBController:
             except Exception as e:
                 self.logger.error(f"截图异常: {str(e)}")
                 break
+        stats['capture_s'] = now() - started
         return None
 
     def get_screenshot_to_album(self) -> bool:

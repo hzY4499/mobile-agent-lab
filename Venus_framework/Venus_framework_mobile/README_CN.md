@@ -229,6 +229,42 @@ python batch_runner.py \
 
 ---
 
+### 每步耗时分段（Step Timing）
+
+每一步都会输出一行稳定的 JSON 日志，并写入轨迹文件（`episode_data[i]['timing']`，episode 级汇总在 `trajectory['timing_summary']`）。所有耗时为单调时钟（`time.perf_counter`）测得的秒数，仅做测量，不改变任何行为。
+
+```text
+... - app.run_handler - INFO - STEP_TIMING {"step":3,"screenshot_s":2.1,...,"step_total_s":14.2}
+... - app.run_handler - INFO - EPISODE_TIMING_SUMMARY {"steps":12,"segments":{...},"counts":{...}}
+```
+
+| 字段 | 含义 |
+| --- | --- |
+| `step_total_s` | 一步的总耗时（≈ `step_time`，但用单调时钟） |
+| `screenshot_s` | `req_from_client` 总耗时（含外层包装器的开销） |
+| `screenshot_capture_s` / `screenshot_encode_s` | adb `screencap -p`（含失败重试与重试间的 sleep）/ base64 编码 |
+| `screenshot_attempts` / `screenshot_bytes` / `screenshot_width` / `screenshot_height` | 截图尝试次数 / PNG 字节数 / 分辨率 |
+| `model_s` | `handle_client_req` 总耗时（状态处理 + 图片解码 + 模型调用 + 解析） |
+| `model_call_s` | 其中模型调用（含重试与退避 sleep）的耗时；`model_s - model_call_s` 即本地处理开销 |
+| `model_calls` / `model_attempts` / `model_http_requests` | 调用次数 / 包装层重试循环的尝试次数 / SDK 实际发出的 HTTP 请求数（`http_requests > attempts` 说明 SDK 内部发生了重试） |
+| `reflection_s`, `reflection_judge_s`, `reflection_retry_model_s`, `reflection_rounds`, `reflection_*_calls/attempts/http_requests` | 仅 `--reflection` 开启时出现：反思整体 / 监督模型判断 / 被驳回后策略模型重试 |
+| `save_screenshot_s` | 截图落盘 |
+| `action_s` | `rsp_to_client`（adb input 等） |
+| `wait_s` | 动作后固定的 `time.sleep(2.5)` |
+| `other_s` | 以上分段未覆盖的剩余部分（历史更新等） |
+
+终止步（SUCCESS/CallUser 等）没有 `action_s`/`wait_s`；汇总只统计实际存在该字段的步，`n` 表示参与统计的步数。
+
+从已有轨迹（或日志）打印统计：
+
+```bash
+python -m utils.step_timing logs/agent-traces/<episode_id>/trajectory.pkl.gz
+python -m utils.step_timing logs/agent-traces/<episode_id> --json
+python -m utils.step_timing --log main.log      # 解析日志中的 STEP_TIMING 行
+```
+
+注意：轨迹是 pickle 文件，只读取自己运行产生的文件。旧轨迹没有 `timing` 字段时，仅显示 `step_time`。
+
 ## 动作空间
 
 ### 基础交互

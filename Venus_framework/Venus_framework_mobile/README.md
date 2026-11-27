@@ -229,6 +229,42 @@ python batch_runner.py \
 
 ---
 
+### Step Timing
+
+Every step emits one stable JSON log line and stores the same record in the trajectory (`episode_data[i]['timing']`; episode-level stats in `trajectory['timing_summary']`). Durations are seconds from a monotonic clock (`time.perf_counter`). This is measurement only and does not change behaviour.
+
+```text
+... - app.run_handler - INFO - STEP_TIMING {"step":3,"screenshot_s":2.1,...,"step_total_s":14.2}
+... - app.run_handler - INFO - EPISODE_TIMING_SUMMARY {"steps":12,"segments":{...},"counts":{...}}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `step_total_s` | Whole step (monotonic counterpart of `step_time`) |
+| `screenshot_s` | `req_from_client` total, including any wrappers around it |
+| `screenshot_capture_s` / `screenshot_encode_s` | adb `screencap -p` (incl. retries and their sleeps) / base64 encoding |
+| `screenshot_attempts` / `screenshot_bytes` / `screenshot_width` / `screenshot_height` | attempts / PNG bytes / resolution |
+| `model_s` | `handle_client_req` total (state building, image decode, model call, parsing) |
+| `model_call_s` | Model calls only (incl. retries and backoff sleeps); `model_s - model_call_s` is local overhead |
+| `model_calls` / `model_attempts` / `model_http_requests` | calls / wrapper retry-loop attempts / HTTP requests actually sent by the SDK (`http_requests > attempts` means the SDK retried internally) |
+| `reflection_s`, `reflection_judge_s`, `reflection_retry_model_s`, `reflection_rounds`, `reflection_*_calls/attempts/http_requests` | Only with `--reflection`: whole reflection / supervisor model / policy retries after a rejection |
+| `save_screenshot_s` | Writing the screenshot to disk |
+| `action_s` | `rsp_to_client` (adb input etc.) |
+| `wait_s` | The fixed `time.sleep(2.5)` after the action |
+| `other_s` | Whatever the segments above do not cover |
+
+Terminal steps (SUCCESS/CallUser) have no `action_s`/`wait_s`; summaries only aggregate steps that have a field (`n` is the number of steps used).
+
+Print stats from an existing trajectory or log:
+
+```bash
+python -m utils.step_timing logs/agent-traces/<episode_id>/trajectory.pkl.gz
+python -m utils.step_timing logs/agent-traces/<episode_id> --json
+python -m utils.step_timing --log main.log      # parse STEP_TIMING lines from a log
+```
+
+Trajectories are pickles: only open files produced by your own runs. Old trajectories without `timing` show `step_time` only.
+
 ## Action Space
 
 ### Basic Interaction
